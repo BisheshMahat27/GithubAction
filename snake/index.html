@@ -1,20 +1,311 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport", 
-          content="width=device-width, initial-scale=1.0">
-    <title>Snake Game with GFG</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="script.js"></script>
+  <title>Enhanced Snake HTML Game</title>
+  <meta charset="UTF-8">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-container {
+      position: relative;
+    }
+
+    .score-board {
+      display: flex;
+      justify-content: space-between;
+      width: 400px;
+      margin-bottom: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    canvas {
+      border: 2px solid #fff;
+      background-color: #000;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 400px;
+      height: 400px;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .overlay h1 {
+      margin: 0 0 10px 0;
+      font-size: 32px;
+      color: #4CAF50;
+    }
+
+    .overlay p {
+      margin: 5px 0 20px 0;
+      font-size: 16px;
+      color: #ccc;
+    }
+
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #45a049;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
-
 <body>
-    <h1>Snake Game with 
-          <div class="geeks">Geeks For Geeks</div>
-    </h1>
-    <canvas id="board"></canvas>
-</body>
 
+  <div class="score-board">
+    <div>Score: <span id="score">0</span></div>
+    <div>High Score: <span id="high-score">0</span></div>
+  </div>
+
+  <div class="game-container">
+    <canvas width="400" height="400" id="game"></canvas>
+    
+    <div id="overlay" class="overlay">
+      <h1 id="overlay-title">Snake Game</h1>
+      <p id="overlay-msg">Press Space or click start to play.</p>
+      <button id="start-btn" class="btn">Start Game</button>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('game');
+const context = canvas.getContext('2d');
+
+const scoreEl = document.getElementById('score');
+const highScoreEl = document.getElementById('high-score');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayMsg = document.getElementById('overlay-msg');
+const startBtn = document.getElementById('start-btn');
+
+const grid = 16;
+let count = 0;
+let score = 0;
+let highScore = localStorage.getItem('snake_high_score') || 0;
+
+let isRunning = false;
+let isPaused = false;
+let animationFrameId;
+
+highScoreEl.textContent = highScore;
+
+const snake = {
+  x: 160,
+  y: 160,
+  dx: grid,
+  dy: 0,
+  cells: [],
+  maxCells: 4
+};
+
+const apple = {
+  x: 320,
+  y: 320
+};
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function resetGame() {
+  score = 0;
+  scoreEl.textContent = score;
+  
+  snake.x = 160;
+  snake.y = 160;
+  snake.cells = [];
+  snake.maxCells = 4;
+  snake.dx = grid;
+  snake.dy = 0;
+
+  placeApple();
+}
+
+function placeApple() {
+  apple.x = getRandomInt(0, 25) * grid;
+  apple.y = getRandomInt(0, 25) * grid;
+
+  // Make sure apple doesn't spawn inside the snake body
+  for (let cell of snake.cells) {
+    if (cell.x === apple.x && cell.y === apple.y) {
+      placeApple();
+      break;
+    }
+  }
+}
+
+function startGame() {
+  resetGame();
+  isRunning = true;
+  isPaused = false;
+  overlay.classList.add('hidden');
+  animationFrameId = requestAnimationFrame(loop);
+}
+
+function gameOver() {
+  isRunning = false;
+  cancelAnimationFrame(animationFrameId);
+
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('snake_high_score', highScore);
+    highScoreEl.textContent = highScore;
+  }
+
+  overlayTitle.textContent = "Game Over!";
+  overlayMsg.textContent = `Your Final Score: ${score}`;
+  startBtn.textContent = "Play Again";
+  overlay.classList.remove('hidden');
+}
+
+function togglePause() {
+  if (!isRunning) return;
+
+  isPaused = !isPaused;
+  if (isPaused) {
+    overlayTitle.textContent = "Paused";
+    overlayMsg.textContent = "Press Space to resume";
+    startBtn.textContent = "Resume";
+    overlay.classList.remove('hidden');
+  } else {
+    overlay.classList.add('hidden');
+  }
+}
+
+function loop() {
+  if (!isRunning) return;
+  animationFrameId = requestAnimationFrame(loop);
+
+  if (isPaused) return;
+
+  // Slow loop to 15 FPS
+  if (++count < 4) {
+    return;
+  }
+
+  count = 0;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  snake.x += snake.dx;
+  snake.y += snake.dy;
+
+  // Wrap horizontal
+  if (snake.x < 0) snake.x = canvas.width - grid;
+  else if (snake.x >= canvas.width) snake.x = 0;
+
+  // Wrap vertical
+  if (snake.y < 0) snake.y = canvas.height - grid;
+  else if (snake.y >= canvas.height) snake.y = 0;
+
+  snake.cells.unshift({ x: snake.x, y: snake.y });
+
+  if (snake.cells.length > snake.maxCells) {
+    snake.cells.pop();
+  }
+
+  // Draw apple
+  context.fillStyle = '#ff4d4d';
+  context.fillRect(apple.x, apple.y, grid - 1, grid - 1);
+
+  // Draw snake
+  context.fillStyle = '#4CAF50';
+  snake.cells.forEach(function(cell, index) {
+    context.fillRect(cell.x, cell.y, grid - 1, grid - 1);
+
+    // Ate apple
+    if (cell.x === apple.x && cell.y === apple.y) {
+      snake.maxCells++;
+      score += 10;
+      scoreEl.textContent = score;
+      placeApple();
+    }
+
+    // Collision check
+    for (let i = index + 1; i < snake.cells.length; i++) {
+      if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+        gameOver();
+      }
+    }
+  });
+}
+
+// Input listener
+document.addEventListener('keydown', function(e) {
+  // Arrow keys prevent default scrolling behavior
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
+    e.preventDefault();
+  }
+
+  if (e.code === 'Space') {
+    if (!isRunning) {
+      startGame();
+    } else {
+      togglePause();
+    }
+    return;
+  }
+
+  if (isPaused || !isRunning) return;
+
+  // Modern `e.key` handling
+  if ((e.key === 'ArrowLeft' || e.key === 'a') && snake.dx === 0) {
+    snake.dx = -grid;
+    snake.dy = 0;
+  } else if ((e.key === 'ArrowUp' || e.key === 'w') && snake.dy === 0) {
+    snake.dy = -grid;
+    snake.dx = 0;
+  } else if ((e.key === 'ArrowRight' || e.key === 'd') && snake.dx === 0) {
+    snake.dx = grid;
+    snake.dy = 0;
+  } else if ((e.key === 'ArrowDown' || e.key === 's') && snake.dy === 0) {
+    snake.dy = grid;
+    snake.dx = 0;
+  }
+});
+
+startBtn.addEventListener('click', function() {
+  if (!isRunning) {
+    startGame();
+  } else if (isPaused) {
+    togglePause();
+  }
+});
+</script>
+</body>
 </html>
